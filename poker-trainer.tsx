@@ -39,6 +39,7 @@ type Spot = {
     improvementOuts: number; // improvement outs (informational)
     potOddsPct: number;
     decision: "Fold" | "Call" | "Raise";
+    decisionWhy: string;
     explainer: Explainer;
   };
 };
@@ -262,6 +263,7 @@ function buildExplainer(sol: {
   call: number;
   potOdds: number;
   decision: "Fold" | "Call" | "Raise";
+  decisionWhy: string;
 }): Explainer {
   const eq = approxEquityFromOuts(sol.outs);
   const po = Math.round(sol.potOdds * 10) / 10;
@@ -306,7 +308,7 @@ function buildExplainer(sol: {
     },
     {
       title: "6) Decision",
-      text: `Best play: ${sol.decision}.`,
+      text: `Best play: ${sol.decision} — ${sol.decisionWhy}`,
     },
   ];
 
@@ -319,6 +321,30 @@ function buildExplainer(sol: {
   const summary = `Answer: ${sol.bestHandLabel} • ${sol.drawLabel} • Draw Outs: ${sol.outs}, Improvement: ${sol.improvementOuts}, Total: ${totalOuts} • Pot odds: ${po}% • Decision: ${sol.decision}.`;
 
   return { steps, summary, commonMistakes };
+}
+
+// Plain-language reason for the decision (1 line, 15-year-old friendly)
+function buildDecisionWhy(
+  decision: "Fold" | "Call" | "Raise",
+  bestHandLabel: string,
+  outs: number,
+  equity: number,
+  potOdds: number
+): string {
+  const strongMade = [
+    "Two Pair", "Three of a Kind", "Straight", "Flush",
+    "Full House", "Four of a Kind", "Straight Flush",
+  ].includes(bestHandLabel);
+  const po = Math.round(potOdds);
+  if (decision === "Raise") {
+    if (strongMade && outs >= 15) return "Strong hand + big draw — raise for value and charge opponents.";
+    if (strongMade) return "Strong made hand — raise for value and protect equity.";
+    return `Massive draw (${outs} outs ≈ ${equity}% equity) — raise to build the pot.`;
+  }
+  if (decision === "Call") {
+    return `Your equity (~${equity}%) beats the price (~${po}%) — calling is profitable.`;
+  }
+  return `Your equity (~${equity}%) is below the price (~${po}%) — too expensive to draw.`;
 }
 
 // ------------------------ Spot generator ------------------------
@@ -340,6 +366,10 @@ function genSpot(mode: Mode): Spot {
   const reqPct = betToCall ? potOddsPct(pot, betToCall) : 0;
   const decision = mode === "DECISION" ? recommendDecision(ev.bestHandLabel, ev.outs, reqPct) : "Call";
 
+  const finalDecision = mode === "DECISION" ? decision : "Call";
+  const eq = Math.min(100, ev.outs * 4);
+  const decisionWhy = buildDecisionWhy(finalDecision, ev.bestHandLabel, ev.outs, eq, reqPct);
+
   const explainer = buildExplainer({
     bestHandLabel: ev.bestHandLabel,
     drawLabel: ev.drawLabel,
@@ -348,7 +378,8 @@ function genSpot(mode: Mode): Spot {
     pot,
     call: betToCall,
     potOdds: reqPct,
-    decision: mode === "DECISION" ? decision : "Call",
+    decision: finalDecision,
+    decisionWhy,
   });
 
   return {
@@ -362,7 +393,8 @@ function genSpot(mode: Mode): Spot {
       outs: ev.outs,
       improvementOuts: ev.improvementOuts,
       potOddsPct: Math.round(reqPct * 10) / 10,
-      decision: mode === "DECISION" ? decision : "Call",
+      decision: finalDecision,
+      decisionWhy,
       explainer,
     },
   };
@@ -960,9 +992,12 @@ export default function PokerAcademyCanvasGame() {
                             </div>
                           )}
                           {mode === "DECISION" && (
-                            <div>
-                              <span className="text-slate-300">Decision:</span> <span className="text-emerald-200">{sol.decision}</span>
-                            </div>
+                            <>
+                              <div>
+                                <span className="text-slate-300">Decision:</span> <span className="text-emerald-200">{sol.decision}</span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400 leading-snug">{sol.decisionWhy}</div>
+                            </>
                           )}
                         </div>
 
