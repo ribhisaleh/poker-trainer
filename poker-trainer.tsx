@@ -35,7 +35,8 @@ type Spot = {
   solution: {
     bestHandLabel: string;
     drawLabel: string;
-    outs: number;
+    outs: number;            // draw outs (used for MCQ + decision engine)
+    improvementOuts: number; // improvement outs (informational)
     potOddsPct: number;
     decision: "Fold" | "Call" | "Raise";
     explainer: Explainer;
@@ -78,7 +79,8 @@ function normalize(s: string) {
 type EvalResult = {
   bestHandLabel: string;
   drawLabel: string;
-  outs: number;
+  outs: number;            // draw outs only (flush/straight)
+  improvementOuts: number; // outs that upgrade an already-made hand
 };
 
 function countByRank(cards: PlayingCard[]) {
@@ -210,7 +212,8 @@ function evalOnFlop(hole: [PlayingCard, PlayingCard], flop: [PlayingCard, Playin
     }
   }
 
-  return { bestHandLabel, drawLabel, outs };
+  const improvementOuts = calcImprovementOuts(bestHandLabel);
+  return { bestHandLabel, drawLabel, outs, improvementOuts };
 }
 
 function potOddsPct(pot: number, callAmt: number) {
@@ -239,10 +242,22 @@ function recommendDecision(bestHand: string, outs: number, reqPct: number) {
   return "Fold" as const;
 }
 
+// Conservative improvement outs for already-made hands
+// These are cards that upgrade the hand to the next tier.
+function calcImprovementOuts(bestHandLabel: string): number {
+  if (bestHandLabel === "High Card") return 6;       // pair either hole card (3 each)
+  if (bestHandLabel === "One Pair") return 5;        // 2 for trips + ~3 for two pair
+  if (bestHandLabel === "Two Pair") return 4;        // 2+2 remaining rank cards → full house
+  if (bestHandLabel === "Three of a Kind") return 7; // 1 for quads + ~6 full house outs
+  if (bestHandLabel === "Full House") return 1;      // one remaining card for quads
+  return 0; // Straight, Flush, SF — no meaningful improvement outs to teach
+}
+
 function buildExplainer(sol: {
   bestHandLabel: string;
   drawLabel: string;
   outs: number;
+  improvementOuts: number;
   pot: number;
   call: number;
   potOdds: number;
@@ -250,6 +265,7 @@ function buildExplainer(sol: {
 }): Explainer {
   const eq = approxEquityFromOuts(sol.outs);
   const po = Math.round(sol.potOdds * 10) / 10;
+  const totalOuts = sol.outs + sol.improvementOuts;
 
   const steps = [
     {
@@ -264,11 +280,18 @@ function buildExplainer(sol: {
           : `Yes. Your draw is: ${sol.drawLabel}.`,
     },
     {
-      title: "3) How many outs?",
+      title: "3) Draw outs?",
       text:
         sol.outs > 0
-          ? `Outs are the cards that improve you. Here: ${sol.outs} outs. Memory: flush draw≈9, OESD≈8, gutshot≈4, combo≈15.`
-          : "No meaningful outs to chase.",
+          ? `Draw outs complete a flush or straight draw. Here: ${sol.outs} draw outs. (Flush≈9, OESD≈8, Gutshot≈4, Combo≈15)`
+          : "No flush or straight draw — 0 draw outs.",
+    },
+    {
+      title: "3b) Improvement outs?",
+      text:
+        sol.improvementOuts > 0
+          ? `Improvement outs upgrade your already-made hand (e.g. one pair→trips, two pair→full house, set→quads). Your ${sol.bestHandLabel} has ~${sol.improvementOuts} improvement outs. Total outs = ${sol.outs} + ${sol.improvementOuts} = ${totalOuts}.`
+          : `Your made hand (${sol.bestHandLabel}) has no significant improvement outs to count. Total outs = ${totalOuts}.`,
     },
     {
       title: "4) Pot odds (price)",
@@ -278,7 +301,7 @@ function buildExplainer(sol: {
       title: "5) Compare",
       text:
         sol.outs > 0
-          ? `Rule of 4: outs×4 ≈ % by river. ${sol.outs}×4 ≈ ${eq}%. If your % ≥ ${po}%, calling is OK.`
+          ? `Rule of 4: draw outs×4 ≈ % by river. ${sol.outs}×4 ≈ ${eq}%. If your % ≥ ${po}%, calling is OK.`
           : "No draw % to compare. If you are not strong, folding is usually best.",
     },
     {
@@ -289,11 +312,11 @@ function buildExplainer(sol: {
 
   const commonMistakes: string[] = [
     "Pot odds is NOT call ÷ pot. It's call ÷ (pot + call).",
-    "Counting outs that don't actually help.",
+    "Counting outs that don't actually help (fake outs).",
     "Chasing tiny draws with expensive calls.",
   ];
 
-  const summary = `Answer: ${sol.bestHandLabel} • ${sol.drawLabel} • Outs: ${sol.outs} • Pot odds: ${po}% • Decision: ${sol.decision}.`;
+  const summary = `Answer: ${sol.bestHandLabel} • ${sol.drawLabel} • Draw Outs: ${sol.outs}, Improvement: ${sol.improvementOuts}, Total: ${totalOuts} • Pot odds: ${po}% • Decision: ${sol.decision}.`;
 
   return { steps, summary, commonMistakes };
 }
@@ -321,6 +344,7 @@ function genSpot(mode: Mode): Spot {
     bestHandLabel: ev.bestHandLabel,
     drawLabel: ev.drawLabel,
     outs: ev.outs,
+    improvementOuts: ev.improvementOuts,
     pot,
     call: betToCall,
     potOdds: reqPct,
@@ -336,6 +360,7 @@ function genSpot(mode: Mode): Spot {
       bestHandLabel: ev.bestHandLabel,
       drawLabel: ev.drawLabel,
       outs: ev.outs,
+      improvementOuts: ev.improvementOuts,
       potOddsPct: Math.round(reqPct * 10) / 10,
       decision: mode === "DECISION" ? decision : "Call",
       explainer,
@@ -368,8 +393,25 @@ try {
 
 // ------------------------ UI components ------------------------
 
-function PokerCard({ c }: { c: PlayingCard }) {
+function PokerCard({ c, hc = true }: { c: PlayingCard; hc?: boolean }) {
   const red = c.suit === "♥" || c.suit === "♦";
+  if (hc) {
+    // High-contrast: white card, real playing-card look
+    const col = red ? "text-red-600" : "text-gray-900";
+    return (
+      <div className="w-16 h-24 rounded-lg border border-slate-200 bg-white shadow-md flex flex-col justify-between p-1.5 select-none">
+        <div className={`flex flex-col leading-none ${col}`}>
+          <span className="text-sm font-bold">{c.rank}</span>
+          <span className="text-sm">{c.suit}</span>
+        </div>
+        <div className={`flex flex-col leading-none items-end rotate-180 ${col}`}>
+          <span className="text-sm font-bold">{c.rank}</span>
+          <span className="text-sm">{c.suit}</span>
+        </div>
+      </div>
+    );
+  }
+  // Classic dark card
   return (
     <div className="w-16 h-24 rounded-2xl border border-white/10 bg-gradient-to-b from-slate-800 to-slate-900 shadow-[0_10px_30px_rgba(0,0,0,0.45)] flex items-center justify-center select-none">
       <div className="text-xl font-semibold tracking-wide">
@@ -500,6 +542,7 @@ export default function PokerAcademyCanvasGame() {
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
   const [round, setRound] = useState(1);
+  const [highContrast, setHighContrast] = useState(true);
 
   const level = useMemo(() => Math.floor(xp / 100) + 1, [xp]);
   const levelProgress = useMemo(() => xp % 100, [xp]);
@@ -613,7 +656,9 @@ export default function PokerAcademyCanvasGame() {
   const visibleSteps = useMemo(() => {
     const steps = sol.explainer.steps;
     if (mode === "HAND") return steps.filter((s) => s.title.startsWith("1)"));
-    if (mode === "OUTS") return steps.filter((s) => s.title.startsWith("1)") || s.title.startsWith("2)") || s.title.startsWith("3)"));
+    if (mode === "OUTS") return steps.filter((s) =>
+      s.title.startsWith("1)") || s.title.startsWith("2)") || s.title.startsWith("3)")  || s.title.startsWith("3b)")
+    );
     return steps;
   }, [mode, sol.explainer.steps]);
 
@@ -681,23 +726,32 @@ export default function PokerAcademyCanvasGame() {
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold">Round {round}</div>
-                    <div className="text-xs text-slate-400">Enter = Check / Next</div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setHighContrast((v) => !v)}
+                        className="text-xs text-slate-400 hover:text-slate-200 touch-manipulation"
+                        title="Toggle card style"
+                      >
+                        {highContrast ? "◑ Cards: light" : "◐ Cards: dark"}
+                      </button>
+                      <div className="text-xs text-slate-400">Enter = Check / Next</div>
+                    </div>
                   </div>
 
                   <div className="mt-4">
                     <div className="text-xs text-slate-400 mb-2">Your cards</div>
                     <div className="flex gap-2">
-                      <PokerCard c={spot.hole[0]} />
-                      <PokerCard c={spot.hole[1]} />
+                      <PokerCard c={spot.hole[0]} hc={highContrast} />
+                      <PokerCard c={spot.hole[1]} hc={highContrast} />
                     </div>
                   </div>
 
                   <div className="mt-4">
                     <div className="text-xs text-slate-400 mb-2">Flop</div>
                     <div className="flex gap-2">
-                      <PokerCard c={spot.flop[0]} />
-                      <PokerCard c={spot.flop[1]} />
-                      <PokerCard c={spot.flop[2]} />
+                      <PokerCard c={spot.flop[0]} hc={highContrast} />
+                      <PokerCard c={spot.flop[1]} hc={highContrast} />
+                      <PokerCard c={spot.flop[2]} hc={highContrast} />
                     </div>
                   </div>
 
@@ -888,9 +942,17 @@ export default function PokerAcademyCanvasGame() {
                             </div>
                           )}
                           {mode !== "HAND" && (
-                            <div>
-                              <span className="text-slate-300">Outs:</span> <span className="text-emerald-200">{sol.outs}</span>
-                            </div>
+                            <>
+                              <div>
+                                <span className="text-slate-300">Draw Outs:</span> <span className="text-emerald-200">{sol.outs}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-300">Improvement Outs:</span> <span className="text-emerald-200">~{sol.improvementOuts}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-300">Total Outs:</span> <span className="text-emerald-200 font-semibold">{sol.outs + sol.improvementOuts}</span>
+                              </div>
+                            </>
                           )}
                           {mode === "DECISION" && (
                             <div>
