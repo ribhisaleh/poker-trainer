@@ -948,7 +948,12 @@ export default function PokerAcademyCanvasGame() {
                           </div>
                         </div>
 
-                        <div className="pt-1 text-xs text-slate-400">Tap Next to continue.</div>
+                        <button
+                          onClick={() => newSpot()}
+                          className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-4 text-base mt-1 touch-manipulation"
+                        >
+                          Next →
+                        </button>
                       </div>
                     )}
 
