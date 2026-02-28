@@ -431,7 +431,7 @@ function PokerCard({ c, hc = true }: { c: PlayingCard; hc?: boolean }) {
     // High-contrast: white card, real playing-card look
     const col = red ? "text-red-600" : "text-gray-900";
     return (
-      <div className="w-16 h-24 rounded-lg border border-slate-200 bg-white shadow-md flex flex-col justify-between p-1.5 select-none">
+      <div className="w-16 h-24 rounded-lg border border-slate-300 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.75),0_4px_12px_rgba(0,0,0,0.5)] flex flex-col justify-between p-1.5 select-none">
         <div className={`flex flex-col leading-none ${col}`}>
           <span className="text-sm font-bold">{c.rank}</span>
           <span className="text-sm">{c.suit}</span>
@@ -445,7 +445,7 @@ function PokerCard({ c, hc = true }: { c: PlayingCard; hc?: boolean }) {
   }
   // Classic dark card
   return (
-    <div className="w-16 h-24 rounded-2xl border border-white/10 bg-gradient-to-b from-slate-800 to-slate-900 shadow-[0_10px_30px_rgba(0,0,0,0.45)] flex items-center justify-center select-none">
+    <div className="w-16 h-24 rounded-2xl border border-white/20 bg-gradient-to-b from-slate-700 to-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.75),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center select-none">
       <div className="text-xl font-semibold tracking-wide">
         <span className={red ? "text-rose-300" : "text-slate-100"}>{c.rank}</span>
         <span className={red ? "text-rose-300" : "text-slate-100"}>{c.suit}</span>
@@ -470,7 +470,7 @@ function ModeButton({
       onClick={onClick}
       className={
         "w-full text-left rounded-2xl border px-4 py-3 transition " +
-        (active ? "border-emerald-400/40 bg-emerald-500/10" : "border-white/10 bg-white/5 hover:bg-white/10")
+        (active ? "border-amber-400/40 bg-amber-500/10" : "border-white/[0.08] bg-black/30 backdrop-blur-sm hover:bg-white/10")
       }
     >
       <div className="text-sm font-semibold text-slate-100">{label}</div>
@@ -712,7 +712,7 @@ export default function PokerAcademyCanvasGame() {
   }, [mode, bestHand, drawType, outs, potOdds, decision]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-slate-100">
+    <div className="casino-bg min-h-screen text-slate-100">
       <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
           <div>
@@ -720,19 +720,19 @@ export default function PokerAcademyCanvasGame() {
             <div className="text-sm text-slate-400">Tap answers • No typing • Clean dark mode</div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className="bg-emerald-500/10 text-emerald-200 border border-emerald-400/20" variant="outline">
+            <Badge className="bg-amber-500/10 text-amber-300 border border-amber-400/30" variant="outline">
               Level {level}
             </Badge>
-            <Badge className="bg-white/5 text-slate-200 border border-white/10" variant="outline">
+            <Badge className="bg-amber-500/10 text-amber-300 border border-amber-400/30" variant="outline">
               XP {xp}
             </Badge>
-            <Badge className={"border " + (streak ? "bg-emerald-500/10 text-emerald-200 border-emerald-400/20" : "bg-white/5 text-slate-200 border-white/10")} variant="outline">
+            <Badge className={"border " + (streak ? "bg-amber-500/10 text-amber-300 border-amber-400/30" : "bg-white/5 text-slate-400 border-white/10")} variant="outline">
               Streak {streak}
             </Badge>
           </div>
         </div>
 
-        <Card className="rounded-2xl border-white/10 bg-white/5">
+        <Card className="rounded-2xl border border-white/[0.08] bg-black/30 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
           <CardContent className="p-4 md:p-6 space-y-4">
             <div className="grid md:grid-cols-3 gap-2">
               <ModeButton active={mode === "HAND"} label="1) Hand Recognition" sub="Fast: pick the best hand" onClick={() => switchMode("HAND")} />
@@ -755,7 +755,7 @@ export default function PokerAcademyCanvasGame() {
             <div className="grid lg:grid-cols-2 gap-4">
               {/* LEFT: Cards */}
               <div className="space-y-4">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/40 backdrop-blur-sm p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold">Round {round}</div>
                     <div className="flex items-center gap-3">
@@ -789,13 +789,13 @@ export default function PokerAcademyCanvasGame() {
 
                   {mode === "DECISION" && (
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 backdrop-blur-sm p-3">
                         <div className="text-xs text-slate-400">Pot</div>
-                        <div className="text-xl font-semibold text-slate-100">${spot.pot}</div>
+                        <div className="text-xl font-semibold text-amber-300">${spot.pot}</div>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 backdrop-blur-sm p-3">
                         <div className="text-xs text-slate-400">To call</div>
-                        <div className="text-xl font-semibold text-slate-100">${spot.betToCall}</div>
+                        <div className="text-xl font-semibold text-amber-300">${spot.betToCall}</div>
                       </div>
                     </div>
                   )}
@@ -805,7 +805,7 @@ export default function PokerAcademyCanvasGame() {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/30 backdrop-blur-sm p-4">
                   <div className="text-sm font-semibold">Memory cheats</div>
                   <div className="mt-2 text-sm text-slate-300 space-y-1">
                     <div>
@@ -827,7 +827,7 @@ export default function PokerAcademyCanvasGame() {
 
               {/* RIGHT: Tap answers */}
               <div className="space-y-3">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/30 backdrop-blur-sm p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold">Tap your answers</div>
                     <div className="text-xs text-slate-400">No typing</div>
@@ -941,10 +941,10 @@ export default function PokerAcademyCanvasGame() {
                     </div>
 
                     {last && (
-                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2">
+                      <div className="mt-3 rounded-2xl border border-white/[0.08] bg-black/30 backdrop-blur-sm p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="text-sm font-semibold">Result</div>
-                          <Badge className={last.passed ? "bg-emerald-500/10 text-emerald-200 border border-emerald-400/20" : "bg-white/5 text-slate-200 border border-white/10"} variant="outline">
+                          <Badge className={last.passed ? "bg-amber-500/10 text-amber-300 border border-amber-400/30" : "bg-white/5 text-slate-400 border border-white/10"} variant="outline">
                             +{last.gained} XP
                           </Badge>
                         </div>
@@ -1001,7 +1001,7 @@ export default function PokerAcademyCanvasGame() {
                           )}
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <div className="rounded-2xl border border-white/[0.08] bg-black/40 backdrop-blur-sm p-3">
                           <div className="text-sm font-semibold">What went wrong (simple)</div>
                           <div className="mt-2 text-sm text-slate-300 space-y-1">
                             {!last?.bestOk && (
@@ -1033,7 +1033,7 @@ export default function PokerAcademyCanvasGame() {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <div className="rounded-2xl border border-white/[0.08] bg-black/40 backdrop-blur-sm p-3">
                           <div className="text-sm font-semibold">How the right answer is achieved</div>
                           <div className="mt-2 space-y-3">
                             {visibleSteps.map((s, idx) => (
